@@ -1,0 +1,442 @@
+Proxy Caching Advanced – Field Reference & Guidance
+This section provides field-level guidance for configuring the Proxy Caching Advanced plugin in Kong. Instead of listing all possible permutations, we narrow the choices to the specific FIS setup.
+
+dictionary_name (string)
+We are using kong_db_cache. This is the default and preconfigured value in Kong. Keeping it the same to avoid unnecessary customizations.
+Update It Only if multiple caching dictionaries are needed (rare).
+
+
+
+host (string)
+Example: master.kong-redis.t1sxxx.use1.cache.amazonaws.com (AWS ElastiCache Redis endpoint).
+Must point to a valid Redis cluster; otherwise cache will fail.
+
+
+
+port (integer)
+Using default port 6379, this value will not be updated until Redis is configured to a different port.
+
+database (integer)
+Using Database value as 1 as Database 0 is often reserved for system use; using a separate DB ensures clean isolation. We can increase the number of databases further depending on the same Redis cache being used for the number of environments. (dev, UAT, Prod). Currently separate Redis cache instances would be created for each environment.
+
+
+
+ssl (boolean) / ssl_verify (boolean)
+ssl = true ensures encryption in transit.
+
+
+ssl_verify = false disables certificate validation.
+
+
+In lower environments, ssl_verify=false is acceptable.
+In production, enable ssl_verify=true with proper certificates.
+
+
+
+connect_timeout, read_timeout, send_timeout (ms)
+We are using 2000 ms each (2 seconds). It Provides a balance between responsiveness and avoiding premature disconnects. To Improve reliability we can increase the timeout but it may cause slow failovers.
+
+
+
+keepalive_pool_size (integer)
+We are using 256. It Supports concurrent Redis connections in high-traffic scenarios. if we face any connection exhaustion we should Adjust upward.
+
+
+
+request_method (array[string])
+we configured [GET, HEAD, POST] because GET and HEAD are safe to cache. POST is allowed here only if responses are idempotent, and the response will remain the same given that request data and API being hit are not updated.
+
+
+
+response_code (array[integer])
+We added basic cacheable responses here 200, 301, 404. We can add more as long as they’re cacheable, but these are the ones used majorly for caching.
+
+
+
+
+response_headers
+x-cache-key, x-cache-status, age are enabled. It is Helpful for debugging and monitoring cache effectiveness. In production if headers expose sensitive details we can disable it.
+With current requirements it has not been specified if these needs to be updated or removed.
+
+
+
+strategy (string)
+We are using redis. It was decided to use Redis to ensure caching is centralized and scalable across multiple Kong nodes.
+
+
+
+
+cache_ttl (integer, seconds)
+We are using 300 (5 minutes) for Balanced freshness and backend offload. This is to avoid too many calls on the backend to refresh the data or too many delayed calls resulting in data inconsistency.
+
+
+
+bypass_on_err (boolean)
+Keeping it false to ensure requests fail if Redis is down, preventing silent inconsistencies.
+
+
+
+
+ignore_uri_case (boolean)
+Set to false as Most APIs are case-sensitive. Enabling could cause unexpected cache hits/misses.
+
+
+
+vary_headers & vary_query_params
+Currently not configured.
+As of now we don’t have any requirement which says responses will vary by headers (Accept-Language) or query parameters (?currency=USD).
+
+
+
+Example FIS Standard Setup
+Dictionary: kong_db_cache
+
+
+Redis Host: AWS ElastiCache endpoint
+
+
+Port: 6379
+
+
+Database: 1
+
+
+SSL: true
+
+
+Request Methods: GET, HEAD (POST optional if idempotent)
+
+
+Response Codes Cached: 200, 301, 404, 503
+
+
+Cache TTL: 300s
+
+
+Strategy: Redis
+
+
+
+
+
+
+
+
+
+[11:35 PM, 8/26/2025] N: Proxy Caching Advanced – Field Reference & Guidance
+This section provides field-level guidance for configuring the Proxy Caching Advanced plugin in Kong. Instead of listing all possible permutations, we narrow the choices to the specific FIS setup.
+
+dictionary_name (string)
+We are using kong_db_cache. This is the default and preconfigured value in Kong. Keeping it the same to avoid unnecessary customizations.
+Update It Only if multiple caching dictionaries are needed (rare).
+
+
+
+host (string)
+Example: master.kong-redis.t1sxxx.use1.cache.amazonaws.com (AWS ElastiCache Redis endpoint).
+Must point to a valid Redis cluster; otherwise cache will fail.
+
+
+
+port (integer)
+Using default port 6379, this value will not be updated until Redis is configured to a different port.
+
+database (integer)
+Using Database value as 1 as Database 0 is often reserved for system use; using a separate DB ensures clean isolation. We can increase the number of databases further depending on the same Redis cache being used for the number of environments. (dev, UAT, Prod). Currently separate Redis cache instances would be created for each environment.
+
+
+
+ssl (boolean) / ssl_verify (boolean)
+ssl = true ensures encryption in transit.
+
+
+ssl_verify = false disables certificate validation.
+
+
+In lower environments, ssl_verify=false is acceptable.
+In production, enable ssl_verify=true with proper certificates.
+
+
+
+connect_timeout, read_timeout, send_timeout (ms)
+We are using 2000 ms each (2 seconds). It Provides a balance between responsiveness and avoiding premature disconnects. To Improve reliability we can increase the timeout but it may cause slow failovers.
+
+
+
+keepalive_pool_size (integer)
+We are using 256. It Supports concurrent Redis connections in high-traffic scenarios. if we face any connection exhaustion we should Adjust upward.
+
+
+
+request_method (array[string])
+we configured [GET, HEAD, POST] because GET and HEAD are safe to cache. POST is allowed here only if responses are idempotent, and the response will remain the same given that request data and API being hit are not updated.
+
+
+
+response_code (array[integer])
+We added basic cacheable responses here 200, 301, 404. We can add more as long as they’re cacheable, but these are the ones used majorly for caching.
+
+
+
+
+response_headers
+x-cache-key, x-cache-status, age are enabled. It is Helpful for debugging and monitoring cache effectiveness. In production if headers expose sensitive details we can disable it.
+With current requirements it has not been specified if these needs to be updated or removed.
+
+
+
+strategy (string)
+We are using redis. It was decided to use Redis to ensure caching is centralized and scalable across multiple Kong nodes.
+
+
+
+
+cache_ttl (integer, seconds)
+We are using 300 (5 minutes) for Balanced freshness and backend offload. This is to avoid too many calls on the backend to refresh the data or too many delayed calls resulting in data inconsistency.
+
+
+
+bypass_on_err (boolean)
+Keeping it false to ensure requests fail if Redis is down, preventing silent inconsistencies.
+
+
+
+
+ignore_uri_case (boolean)
+Set to false as Most APIs are case-sensitive. Enabling could cause unexpected cache hits/misses.
+
+
+
+vary_headers & vary_query_params
+Currently not configured.
+As of now we don’t have any requirement which says responses will vary by headers (Accept-Language) or query parameters (?currency=USD).
+
+
+
+Example FIS Standard Setup
+Dictionary: kong_db_cache
+
+
+Redis Host: AWS ElastiCache endpoint
+
+
+Port: 6379
+
+
+Database: 1
+
+
+SSL: true
+
+
+Request Methods: GET, HEAD (POST optional if idempotent)
+
+
+Response Codes Cached: 200, 301, 404, 503
+
+
+Cache TTL: 300s
+
+
+Strategy: Redis
+[11:35 PM, 8/26/2025] N: Rate Limiting Advanced Plugin - Field Reference & Guidance
+1. Purpose
+The Rate Limiting Advanced plugin controls how many requests can be made to an API within a defined time window. At FIS, this plugin is configured with Redis to ensure consistency across multiple Kong nodes. This avoids situations where a client could bypass limits by distributing requests across different nodes.
+
+2. Step-by-Step Configuration with Explanations
+🔑 Identifiers
+Identifier = ip
+ → We use the client IP address as the identifier. This ensures rate limits apply even if the caller is unauthenticated.
+We are not using compound_identifier.  For global setup, we keep it simple and only use IP. Compound identifiers (like IP + header) are more complex and not required in our use case. If other teams configure this at the route level, they can extend, but our default guidance is IP-based.
+
+
+
+📊 Rate Limits
+Limit = 100 This number balances protection and usability. It prevents misuse while still allowing legitimate clients enough throughput.
+Future service tiers (bronze, silver, gold) could align with different limits.
+
+
+Window Size = 60 seconds
+One minute is a standard and understandable window for clients.
+If smaller windows (like 1 second) were used, APIs would reject bursts of traffic too aggressively, which is not desired for most use cases.
+
+
+Window Type = sliding
+
+
+Sliding windows ensures smoother enforcement by continuously counting requests. And to avoid “burst resets” (clients send a large burst right after a reset) which usually happens with Fixed window type.
+
+
+
+🗂 Dictionaries & Namespacing
+Dictionary Name = kong_rate_limiting_counters
+Stores counters used by the plugin.
+This dictionary is maintained internally and doesn’t need to be changed.
+
+
+Lock Dictionary Name = kong_locks
+Default is fine; no need to change unless instructed.
+
+
+Namespace = dev / uat / prod
+Currently its not used as we’re using a global setup for the same. And doesn;t need any segregation
+If used, namespaces should follow environment tags (dev, uat, prod).
+
+
+
+🔄 Redis Configuration
+Strategy = redis
+
+
+Always use Redis for distributed counters in multi-node FIS deployments.
+
+
+Host = master.kong-redis.t1sxxx.use1.cache.amazonaws.com
+
+
+AWS ElastiCache Redis endpoint.
+
+
+Database = 1
+
+
+Keeps counters separate from other Redis usage.
+
+
+SSL = true
+
+
+Secures traffic to Redis, which is required for production.
+
+
+Timeouts (connect/read/send) = 2000 ms
+
+
+Protects APIs from slow Redis responses. Clients will fail fast instead of hanging.
+
+
+Keepalive Pool Size = 256
+
+
+Supports high concurrency by reusing connections.
+
+
+Cluster Max Redirections = 5
+
+
+Handles Redis cluster redirections in case of failover.
+
+
+Note: Without Redis, each Kong node would count requests separately, meaning a user could hit multiple nodes and bypass limits. Redis ensures one shared counter.
+
+🚫 Error Handling
+Error Code = 429
+This is the HTTP standard for “Too Many Requests.”
+Clients (SDKs, libraries, and apps) know how to handle this properly.
+
+
+Error Message = "API rate limit exceeded"
+
+
+Clear and human-readable message.
+
+
+Disable Penalty = false
+
+
+We do not allow “soft” limits. Once the limit is reached, the client must stop.
+
+
+This prevents clients from abusing APIs beyond defined thresholds.
+
+
+Retry After Jitter Max = 0
+
+
+We don’t add random retry jitter by default. Clients must retry after the window.
+
+
+If we see retry storms in future, this setting can be revisited.
+
+
+
+👥 Consumer & Groups
+Consumer Groups = Not used
+
+
+We’re using a global setup currently as of that we don’t need to use Consumer and consumer groups.
+
+
+If we needed tiered limits in future (bronze, silver, gold), consumer groups would be useful.
+
+
+Enforce Consumer Groups = false
+
+
+Since consumer groups are not used, enforcement is always disabled.
+
+
+
+🧾 Headers
+Header Name
+
+
+By default, Kong adds headers like X-RateLimit-Limit, X-RateLimit-Remaining.
+
+
+These help clients understand their current usage.
+
+
+Hide Client Headers = false
+
+
+We do not hide headers. Keeping them visible allows clients to adjust their request patterns responsibly.
+
+
+
+🌐 Protocols
+Protocols = http, https, grpc, grpcs
+
+
+We include all supported protocols to ensure limits apply universally.
+
+
+Even if most APIs use https, it’s best to configure broadly.
+
+
+
+3. Example decK Configuration
+plugins:
+  - name: rate-limiting-advanced
+    enabled: true
+    config:
+      identifier: ip               
+      limit: [100]                 
+      window_size: [60]            
+      window_type: sliding         
+      strategy: redis             
+      redis:
+        host: master.kong-redis.t1sxxx.use1.cache.amazonaws.com
+        port: 6379
+        database: 1
+        ssl: true
+        timeout: 2000
+        keepalive_pool_size: 256
+        cluster_max_redirections: 5
+      error_code: 429
+      error_message: "API rate limit exceeded"
+      hide_client_headers: false
+      enforce_consumer_groups: false
+
+
+4. Key Guidance
+Always keep the plugin enabled; a disabled plugin means no protection.
+
+
+Use IP identifiers for global APIs unless business need dictates consumer-based limits.
+
+
+Stick to the standard limit (100/min) unless approved otherwise.
+
+
+Always configure the Redis backend in production for shared counters.
