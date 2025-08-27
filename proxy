@@ -1,0 +1,121 @@
+Proxy Caching Advanced – Field Reference & Guidance
+This section provides field-level guidance for configuring the Proxy Caching Advanced plugin in Kong. Instead of listing all possible permutations, we narrow the choices to the specific FIS setup.
+
+dictionary_name (string)
+We are using kong_db_cache. This is the default and preconfigured value in Kong. Keeping it the same to avoid unnecessary customizations.
+Update It Only if multiple caching dictionaries are needed (rare).
+
+
+
+host (string)
+Example: master.kong-redis.t1sxxx.use1.cache.amazonaws.com (AWS ElastiCache Redis endpoint).
+Must point to a valid Redis cluster; otherwise cache will fail.
+
+
+
+port (integer)
+Using default port 6379, this value will not be updated until Redis is configured to a different port.
+
+database (integer)
+Using Database value as 1 as Database 0 is often reserved for system use; using a separate DB ensures clean isolation. We can increase the number of databases further depending on the same Redis cache being used for the number of environments. (dev, UAT, Prod). Currently separate Redis cache instances would be created for each environment.
+
+
+
+ssl (boolean) / ssl_verify (boolean)
+ssl = true ensures encryption in transit.
+
+
+ssl_verify = false disables certificate validation.
+
+
+In lower environments, ssl_verify=false is acceptable.
+In production, enable ssl_verify=true with proper certificates.
+
+
+
+connect_timeout, read_timeout, send_timeout (ms)
+We are using 2000 ms each (2 seconds). It Provides a balance between responsiveness and avoiding premature disconnects. To Improve reliability we can increase the timeout but it may cause slow failovers.
+
+
+
+keepalive_pool_size (integer)
+We are using 256. It Supports concurrent Redis connections in high-traffic scenarios. if we face any connection exhaustion we should Adjust upward.
+
+
+
+request_method (array[string])
+we configured [GET, HEAD, POST] because GET and HEAD are safe to cache. POST is allowed here only if responses are idempotent, and the response will remain the same given that request data and API being hit are not updated.
+
+
+
+response_code (array[integer])
+We added basic cacheable responses here 200, 301, 404. We can add more as long as they’re cacheable, but these are the ones used majorly for caching.
+
+
+
+
+response_headers
+x-cache-key, x-cache-status, age are enabled. It is Helpful for debugging and monitoring cache effectiveness. In production if headers expose sensitive details we can disable it.
+With current requirements it has not been specified if these needs to be updated or removed.
+
+
+
+strategy (string)
+We are using redis. It was decided to use Redis to ensure caching is centralized and scalable across multiple Kong nodes.
+
+
+
+
+cache_ttl (integer, seconds)
+We are using 300 (5 minutes) for Balanced freshness and backend offload. This is to avoid too many calls on the backend to refresh the data or too many delayed calls resulting in data inconsistency.
+
+
+
+bypass_on_err (boolean)
+Keeping it false to ensure requests fail if Redis is down, preventing silent inconsistencies.
+
+
+
+
+ignore_uri_case (boolean)
+Set to false as Most APIs are case-sensitive. Enabling could cause unexpected cache hits/misses.
+
+
+
+vary_headers & vary_query_params
+Currently not configured.
+As of now we don’t have any requirement which says responses will vary by headers (Accept-Language) or query parameters (?currency=USD).
+
+
+
+Example FIS Standard Setup
+Dictionary: kong_db_cache
+
+
+Redis Host: AWS ElastiCache endpoint
+
+
+Port: 6379
+
+
+Database: 1
+
+
+SSL: true
+
+
+Request Methods: GET, HEAD (POST optional if idempotent)
+
+
+Response Codes Cached: 200, 301, 404, 503
+
+
+Cache TTL: 300s
+
+
+Strategy: Redis
+
+
+
+
+
