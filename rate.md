@@ -1,113 +1,206 @@
-Rate Limiting Advanced – Field Reference & Guidance
+Rate Limiting Advanced Plugin - Field Reference & Guidance
+1. Purpose
+The Rate Limiting Advanced plugin controls how many requests can be made to an API within a defined time window. At FIS, this plugin is configured with Redis to ensure consistency across multiple Kong nodes. This avoids situations where a client could bypass limits by distributing requests across different nodes.
 
-This section provides field-level guidance for configuring the Rate Limiting Advanced plugin in Kong. Instead of listing all possible permutations, we narrow the choices to the specific FIS setup.
+2. Step-by-Step Configuration with Explanations
+🔑 Identifiers
+Identifier = ip
+ → We use the client IP address as the identifier. This ensures rate limits apply even if the caller is unauthenticated.
+We are not using compound_identifier.  For global setup, we keep it simple and only use IP. Compound identifiers (like IP + header) are more complex and not required in our use case. If other teams configure this at the route level, they can extend, but our default guidance is IP-based.
 
-identifier (string)
-We are using ip. This ensures rate limits apply even if the caller is unauthenticated.
-Compound identifiers (like IP + header) are not required in our use case and add unnecessary complexity.
 
-limit (array[integer])
-We are using [100]. This balances protection and usability by preventing misuse while still allowing legitimate throughput.
-In the future, different service tiers (bronze, silver, gold) could use different limits.
 
-window_size (array[integer])
-We are using [60] seconds. A one-minute window is standard and easy for clients to understand.
-Shorter windows (like 1s) would reject bursts too aggressively, which is not desirable.
+📊 Rate Limits
+Limit = 100 This number balances protection and usability. It prevents misuse while still allowing legitimate clients enough throughput.
+Future service tiers (bronze, silver, gold) could align with different limits.
 
-window_type (string)
-We are using sliding. Sliding windows provide smoother enforcement and avoid burst resets that happen with fixed windows.
 
-dictionary_name (string)
-We are using kong_rate_limiting_counters. This is the default and does not need to be changed.
+Window Size = 60 seconds
+One minute is a standard and understandable window for clients.
+If smaller windows (like 1 second) were used, APIs would reject bursts of traffic too aggressively, which is not desired for most use cases.
 
-lock_dictionary_name (string)
-We are using kong_locks. This is the default value and should not be updated unless specifically instructed.
 
-namespace (string)
-Currently not configured.
-Since we use a global setup, segregation by namespace is not needed. If required in the future, namespaces should follow environment tags (dev, uat, prod).
+Window Type = sliding
 
-strategy (string)
-We are using redis. Redis ensures counters are centralized and shared across Kong nodes, preventing bypass when clients hit multiple nodes.
 
-redis.host (string)
-Example: master.kong-redis.t1sxxx.use1.cache.amazonaws.com (AWS ElastiCache endpoint). Must point to a valid Redis cluster for the plugin to work.
+Sliding windows ensures smoother enforcement by continuously counting requests. And to avoid “burst resets” (clients send a large burst right after a reset) which usually happens with Fixed window type.
 
-redis.port (integer)
-Using default port 6379. This value is unchanged unless Redis is configured differently.
 
-redis.database (integer)
-We are using Database 1. Database 0 is often reserved for system use, so a separate DB ensures isolation. More DBs can be added if Redis is shared across environments.
 
-redis.ssl (boolean) / redis.ssl_verify (boolean)
-ssl = true ensures encryption in transit.
-ssl_verify = false is acceptable in lower environments.
-In production, enable ssl_verify = true with proper certificates.
+🗂 Dictionaries & Namespacing
+Dictionary Name = kong_rate_limiting_counters
+Stores counters used by the plugin.
+This dictionary is maintained internally and doesn’t need to be changed.
 
-redis.connect_timeout, redis.read_timeout, redis.send_timeout (ms)
-We are using 2000 ms (2s) for each. This gives a good balance between responsiveness and reliability. Increasing the values could improve tolerance but would cause slower failovers.
 
-redis.keepalive_pool_size (integer)
-We are using 256. Supports many concurrent Redis connections in high-traffic scenarios. Increase this value if connection exhaustion is observed.
+Lock Dictionary Name = kong_locks
+Default is fine; no need to change unless instructed.
 
-redis.cluster_max_redirections (integer)
-We are using 5. This handles Redis cluster redirections in case of failover.
 
-error_code (integer)
-We are using 429. This is the HTTP standard for “Too Many Requests” and is properly handled by clients and SDKs.
+Namespace = dev / uat / prod
+Currently its not used as we’re using a global setup for the same. And doesn;t need any segregation
+If used, namespaces should follow environment tags (dev, uat, prod).
 
-error_message (string)
-We are using "API rate limit exceeded". This is clear and easy for clients to understand.
 
-disable_penalty (boolean)
-We are keeping it false. This enforces hard limits. Once the threshold is reached, clients are blocked. This prevents silent overuse of the API.
 
-retry_after_jitter_max (integer)
-We are using 0. No random jitter is applied. Clients must retry after the window.
-If retry storms are seen in the future, jitter can be introduced.
+🔄 Redis Configuration
+Strategy = redis
 
-consumer_groups / enforce_consumer_groups
-Not configured. We use a global setup, so consumer groups are not required. In the future, consumer groups can be used for tiered limits.
 
-headers (boolean)
-Default headers (X-RateLimit-Limit, X-RateLimit-Remaining) are enabled.
-hide_client_headers = false keeps them visible so clients can adjust their request behavior responsibly.
+Always use Redis for distributed counters in multi-node FIS deployments.
 
-protocols (array[string])
-We are using [http, https, grpc, grpcs]. This ensures limits apply across all supported protocols, not just HTTPS.
 
-Example FIS Standard Setup
+Host = master.kong-redis.t1sxxx.use1.cache.amazonaws.com
 
-Identifier: ip
 
-Limit: 100 requests
+AWS ElastiCache Redis endpoint.
 
-Window Size: 60 seconds (sliding)
 
-Dictionary: kong_rate_limiting_counters
+Database = 1
 
-Lock Dictionary: kong_locks
 
-Redis Host: AWS ElastiCache endpoint
+Keeps counters separate from other Redis usage.
 
-Port: 6379
 
-Database: 1
+SSL = true
 
-SSL: true
 
-Timeouts: 2000ms
+Secures traffic to Redis, which is required for production.
 
-Keepalive Pool Size: 256
 
-Cluster Max Redirections: 5
+Timeouts (connect/read/send) = 2000 ms
 
-Error Code: 429
 
-Error Message: "API rate limit exceeded"
+Protects APIs from slow Redis responses. Clients will fail fast instead of hanging.
 
-Headers: Enabled (not hidden)
 
-Consumer Groups: Not used
+Keepalive Pool Size = 256
 
-Protocols: http, https, grpc, grpcs
+
+Supports high concurrency by reusing connections.
+
+
+Cluster Max Redirections = 5
+
+
+Handles Redis cluster redirections in case of failover.
+
+
+Note: Without Redis, each Kong node would count requests separately, meaning a user could hit multiple nodes and bypass limits. Redis ensures one shared counter.
+
+🚫 Error Handling
+Error Code = 429
+This is the HTTP standard for “Too Many Requests.”
+Clients (SDKs, libraries, and apps) know how to handle this properly.
+
+
+Error Message = "API rate limit exceeded"
+
+
+Clear and human-readable message.
+
+
+Disable Penalty = false
+
+
+We do not allow “soft” limits. Once the limit is reached, the client must stop.
+
+
+This prevents clients from abusing APIs beyond defined thresholds.
+
+
+Retry After Jitter Max = 0
+
+
+We don’t add random retry jitter by default. Clients must retry after the window.
+
+
+If we see retry storms in future, this setting can be revisited.
+
+
+
+👥 Consumer & Groups
+Consumer Groups = Not used
+
+
+We’re using a global setup currently as of that we don’t need to use Consumer and consumer groups.
+
+
+If we needed tiered limits in future (bronze, silver, gold), consumer groups would be useful.
+
+
+Enforce Consumer Groups = false
+
+
+Since consumer groups are not used, enforcement is always disabled.
+
+
+
+🧾 Headers
+Header Name
+
+
+By default, Kong adds headers like X-RateLimit-Limit, X-RateLimit-Remaining.
+
+
+These help clients understand their current usage.
+
+
+Hide Client Headers = false
+
+
+We do not hide headers. Keeping them visible allows clients to adjust their request patterns responsibly.
+
+
+
+🌐 Protocols
+Protocols = http, https, grpc, grpcs
+
+
+We include all supported protocols to ensure limits apply universally.
+
+
+Even if most APIs use https, it’s best to configure broadly.
+
+
+
+3. Example decK Configuration
+plugins:
+  - name: rate-limiting-advanced
+    enabled: true
+    config:
+      identifier: ip               
+      limit: [100]                 
+      window_size: [60]            
+      window_type: sliding         
+      strategy: redis             
+      redis:
+        host: master.kong-redis.t1sxxx.use1.cache.amazonaws.com
+        port: 6379
+        database: 1
+        ssl: true
+        timeout: 2000
+        keepalive_pool_size: 256
+        cluster_max_redirections: 5
+      error_code: 429
+      error_message: "API rate limit exceeded"
+      hide_client_headers: false
+      enforce_consumer_groups: false
+
+
+4. Key Guidance
+Always keep the plugin enabled; a disabled plugin means no protection.
+
+
+Use IP identifiers for global APIs unless business need dictates consumer-based limits.
+
+
+Stick to the standard limit (100/min) unless approved otherwise.
+
+
+Always configure the Redis backend in production for shared counters.
+
+
+Do not hide headers; they help clients self-regulate traffic.
+
+
