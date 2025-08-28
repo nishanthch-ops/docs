@@ -1,0 +1,105 @@
+Cluster addresses
+
+Value: empty / not set.
+
+Why empty: We connect to AWS ElastiCache using its single primary endpoint; we don’t manually list Redis Cluster node addresses.
+
+When to use: Only if you manage a self-hosted Redis Cluster and must specify node endpoints explicitly.
+
+Cluster nodes
+
+Value: empty / not set.
+
+Why empty: Same reason as Cluster addresses—ElastiCache handles node discovery and failover for us.
+
+When to use: Self-managed Redis Cluster where clients must be told all nodes.
+
+Connection is proxied (connection_is_proxied)
+
+Value: false.
+
+Why: Kong connects directly to Redis over VPC; there’s no proxy (e.g., Twemproxy) in the path.
+
+When to set true: Only if your org inserts a TCP proxy between Kong and Redis.
+
+Keepalive backlog (keepalive_backlog)
+
+Value: 0 (default).
+
+Why: We haven’t observed connection pool contention that needs a backlog; simpler and sufficient for our traffic.
+
+When to change: Very high concurrency and saturated connection pool—tune alongside keepalive_pool_size after measuring.
+
+Keepalive pool size (keepalive_pool_size)
+
+Value: 256.
+
+Why: Reuses Redis connections efficiently under load; proven stable in our tests.
+
+When to change: Scale with traffic characteristics; raise if you see frequent connect churn or pool exhaustion.
+
+Password
+
+Value: empty / not set.
+
+Why empty: Our ElastiCache Redis currently doesn’t use AUTH/ACLs for this endpoint; access is controlled via VPC/security groups.
+
+When to set: If AUTH/ACL is enabled (Redis 6+), set username/password to the Redis ACL user you’re given.
+
+Redis proxy type (redis_proxy_type)
+
+Value: empty / not set.
+
+Why empty: We’re not using a Redis proxy layer.
+
+When to set: Only if your architecture adds a proxy that requires declaring a proxy type.
+
+Sentinel – all fields
+
+(sentinel_addresses, sentinel_master, sentinel_nodes, sentinel_password, sentinel_role, sentinel_username)
+
+Value: all empty / not set.
+
+Why empty: AWS ElastiCache manages HA (automatic replication & failover, DNS updates). No Sentinel config is required.
+
+When to use: Self-managed Redis + Sentinel deployments only.
+
+Server name (server_name)
+
+Value: master.kong-redis.t1sxxx.use1.cache.amazonaws.com.
+
+Why: SNI for TLS; must match the Redis endpoint’s certificate CN/SAN to avoid TLS hostname mismatch.
+
+When to change: Only when the Redis endpoint hostname changes.
+
+SSL verify (ssl_verify)
+
+Value: false (current in screenshot) → Recommended: true for production.
+
+Why now: Sometimes set false during initial setup or if the CA bundle wasn’t wired; TLS still encrypts but skips hostname/CA verification.
+
+Guidance: Prefer true once trust chain is in place; it prevents MITM by validating the cert.
+
+Username
+
+Value: empty / not set.
+
+Why empty: No Redis ACL user configured for this ElastiCache endpoint.
+
+When to set: If Redis ACL is enabled, supply the ACL username paired with password.
+
+Compound identifier (compound_identifier)
+
+Value: empty / not set.
+
+Why empty: FIS global policy uses the simpler identifier: "ip". Compound identifiers (e.g., ["ip", "header:API-Key"]) add complexity we don’t need.
+
+When to use: Route-specific cases that require combining IP with a header or consumer—coordinate with governance first.
+
+Consumer groups (consumer_groups, enforce_consumer_groups)
+
+Values: consumer_groups: [], enforce_consumer_groups: false.
+
+Why: We don’t segment limits by plan today; limits are global per IP.
+
+When to use: If/when we introduce tiered plans (e.g., bronze/silver/gold), define the groups and set enforce_consumer_groups: true on the routes that need it.
