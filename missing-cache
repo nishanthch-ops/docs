@@ -1,0 +1,130 @@
+cache_control (boolean)
+
+What it means: If enabled, the plugin respects upstream Cache-Control headers to determine cacheability and TTL.
+
+Why empty? In your setup it’s not enabled, because caching is being centrally controlled through explicit TTL (cache_ttl=300).
+
+When to use: Enable only if you want Kong to defer caching decisions to backend APIs.
+
+content_type (string/array)
+
+What it means: Restricts cacheable responses by MIME type (e.g., application/json, text/html).
+
+Why empty? Default behavior is to cache all supported types.
+
+When to set: If you want to cache only certain responses, e.g., JSON APIs only.
+
+cluster_addresses (array[string])
+
+What it means: Redis Cluster node addresses.
+
+Why empty? You are using a single-node Redis endpoint via AWS ElastiCache (not cluster mode).
+
+When to set: If your Redis is deployed in cluster mode with multiple shards.
+
+cluster_max_redirections (integer)
+
+What it means: How many times to retry when redirected by a Redis Cluster node.
+
+Configured as: 5
+
+Why this value? Provides safe retry limit for cluster topology changes.
+
+When to adjust: Increase only if your Redis cluster frequently rebalances.
+
+cluster_nodes (array[string])
+
+What it means: List of explicit Redis cluster nodes.
+
+Why empty? Single endpoint (host) is being used with AWS ElastiCache.
+
+connection_is_proxied (boolean)
+
+What it means: Indicates whether the connection to Redis is proxied.
+
+Configured as: false
+
+Why? Direct connection to AWS Redis is used (not via a proxy layer).
+
+keepalive_backlog (integer)
+
+What it means: Number of queued connections waiting for a free keepalive slot.
+
+Configured as: 0
+
+Why? This disables backlog queuing. With pool size 256, requests are expected to fit without backlog.
+
+password (string)
+
+What it means: Redis authentication password.
+
+Why empty? AWS ElastiCache Redis in your setup does not require AUTH (IAM-based or VPC-based security).
+
+When to use: If Redis AUTH is enabled.
+
+read_timeout / send_timeout (ms)
+
+What they mean:
+
+read_timeout: How long to wait for Redis to respond.
+
+send_timeout: How long to wait when sending requests to Redis.
+
+Configured as: 2000 ms each.
+
+Why? Safe balance between responsiveness and stability.
+
+sentinel_addresses (array[string])
+
+What it means: List of Redis Sentinel addresses for HA failover.
+
+Why empty? AWS ElastiCache does not use Sentinel; failover is handled automatically.
+
+When to use: If running Redis with Sentinel for HA management.
+
+sentinel_master (string)
+
+What it means: Name of the Redis master monitored by Sentinel.
+
+Why empty? Not applicable (AWS ElastiCache manages failover).
+
+sentinel_nodes (array)
+
+What it means: Explicit Sentinel nodes for monitoring.
+
+Why empty? Not applicable in your setup.
+
+sentinel_password / sentinel_username
+
+What they mean: Authentication for Sentinel.
+
+Why empty? AWS ElastiCache does not use Sentinel auth.
+
+sentinel_role (string)
+
+What it means: Determines whether to connect to Redis master or replica.
+
+Why empty? Not applicable with AWS-managed endpoint.
+
+server_name (string)
+
+What it means: SNI (Server Name Indication) sent during SSL handshake.
+
+Configured as: master.kong-redis.t1sxxx.use1.cache.amazonaws.com
+
+Why? Required when using TLS with AWS ElastiCache, which expects the endpoint hostname.
+
+username (string)
+
+What it means: Redis username (if using ACLs).
+
+Why empty? Not required for AWS ElastiCache unless ACLs are explicitly configured.
+
+storage_ttl (integer, seconds)
+
+What it means: Maximum lifetime of a cached item, regardless of cache_ttl or Cache-Control.
+
+Why empty? Defaults to using cache_ttl (300 seconds).
+
+When to set: If you want a hard limit on how long any cached item can persist.
+
